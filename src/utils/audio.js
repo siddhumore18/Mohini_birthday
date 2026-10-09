@@ -1,4 +1,4 @@
-// Web Audio API generator for ultra-realistic paper turning rustle and soothing ambient music
+// Web Audio API generator for ultra-realistic tactile paper turning rustle sound only
 
 let audioCtx = null
 
@@ -75,77 +75,3 @@ function createRustleBurst(ctx, startTime, duration, centerFreq, volume) {
   noise.start(startTime)
   noise.stop(startTime + duration)
 }
-
-/**
- * Ambient background music synthesizer (soft music box / calm piano arpeggios)
- */
-class AmbientMusicPlayer {
-  constructor() {
-    this.isPlaying = false
-    this.timer = null
-    this.notes = [
-      261.63, 329.63, 392.00, 523.25, // C chord
-      293.66, 369.99, 440.00, 587.33, // D chord
-      220.00, 261.63, 329.63, 440.00, // A minor
-      174.61, 220.00, 261.63, 349.23, // F chord
-    ]
-    this.step = 0
-  }
-
-  playPluck(freq, time, duration = 1.2) {
-    if (!this.isPlaying) return
-    const ctx = getAudioContext()
-    if (!ctx) return
-
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(freq, time)
-
-    gain.gain.setValueAtTime(0.001, time)
-    gain.gain.linearRampToValueAtTime(0.05, time + 0.04)
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + duration)
-
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-
-    osc.start(time)
-    osc.stop(time + duration)
-  }
-
-  start() {
-    this.isPlaying = true
-    const ctx = getAudioContext()
-    if (!ctx) return
-
-    const tick = () => {
-      if (!this.isPlaying) return
-      const now = ctx.currentTime
-      const chordIndex = Math.floor((this.step / 4) % 4)
-      const noteInChord = this.step % 4
-      const freq = this.notes[chordIndex * 4 + noteInChord]
-
-      this.playPluck(freq, now, 1.4)
-      
-      if (this.step % 8 === 0) {
-        this.playPluck(freq * 2, now + 0.2, 1.6)
-      }
-
-      this.step = (this.step + 1) % 16
-      this.timer = setTimeout(tick, 750)
-    }
-
-    tick()
-  }
-
-  stop() {
-    this.isPlaying = false
-    if (this.timer) {
-      clearTimeout(this.timer)
-      this.timer = null
-    }
-  }
-}
-
-export const ambientSynth = new AmbientMusicPlayer()

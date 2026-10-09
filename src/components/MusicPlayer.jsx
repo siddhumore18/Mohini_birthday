@@ -1,35 +1,29 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { ambientSynth } from '../utils/audio'
 
 export default function MusicPlayer() {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
   const userManuallyMutedRef = useRef(false)
   
-  // Resolve correct path in local dev, Vercel, Netlify, and subpath deployments (GitHub Pages)
+  // Exact user-provided MP3 file in public/music/birthday-bg.mp3
   const baseUrl = import.meta.env.BASE_URL || '/'
   const musicSrc = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}music/birthday-bg.mp3`
 
-  // Direct start method
+  // Direct start method — ONLY plays birthday-bg.mp3
   const startAudioPlayback = useCallback(() => {
     if (userManuallyMutedRef.current) return
 
     const audio = audioRef.current
     if (audio) {
-      audio.volume = 0.55
+      audio.volume = 0.65
       audio.loop = true
       audio
         .play()
         .then(() => {
           setPlaying(true)
-          ambientSynth.stop()
         })
         .catch(() => {
-          // If HTML5 audio is blocked or fails, fallback to ambient web audio synth
-          try {
-            ambientSynth.start()
-            setPlaying(true)
-          } catch {}
+          // Blocked by browser until user gesture
         })
     }
   }, [])
@@ -52,14 +46,13 @@ export default function MusicPlayer() {
     const audio = audioRef.current
     if (!audio) return
 
-    if (!audio.paused || ambientSynth.isPlaying) {
-      // User explicitly muted
+    if (!audio.paused) {
+      // User explicitly paused/muted
       userManuallyMutedRef.current = true
       audio.pause()
-      ambientSynth.stop()
       setPlaying(false)
     } else {
-      // User explicitly unmuted
+      // User explicitly resumed
       userManuallyMutedRef.current = false
       startAudioPlayback()
     }
@@ -69,10 +62,10 @@ export default function MusicPlayer() {
     const audio = audioRef.current
     if (!audio) return
 
-    audio.volume = 0.55
+    audio.volume = 0.65
     audio.loop = true
 
-    // 1. Attempt immediate autoplay when page loads
+    // 1. Attempt immediate playback on page load
     const playPromise = audio.play()
     if (playPromise !== undefined) {
       playPromise
@@ -85,9 +78,8 @@ export default function MusicPlayer() {
         })
     }
 
-    // 2. Unlock & play immediately on the VERY FIRST touch / click / scroll anywhere on screen
+    // 2. Play on very first touch / click / scroll / key anywhere on the screen
     const handleFirstGesture = (e) => {
-      // If user specifically clicked the mute toggle button, don't interfere
       if (e.target && e.target.closest && e.target.closest('.music-toggle')) {
         return
       }
@@ -96,7 +88,6 @@ export default function MusicPlayer() {
         startAudioPlayback()
       }
 
-      // Cleanup listeners once unlocked
       cleanupListeners()
     }
 
@@ -122,7 +113,7 @@ export default function MusicPlayer() {
 
   return (
     <>
-      {/* Native HTML5 Audio element */}
+      {/* Native HTML5 Audio element pointing ONLY to user's birthday-bg.mp3 */}
       <audio
         ref={audioRef}
         src={musicSrc}
@@ -130,18 +121,7 @@ export default function MusicPlayer() {
         loop
         playsInline
         onPlay={() => setPlaying(true)}
-        onPause={() => {
-          if (!ambientSynth.isPlaying) setPlaying(false)
-        }}
-        onError={() => {
-          // Fallback to ambient soothing music if MP3 file fails to load
-          if (!userManuallyMutedRef.current) {
-            try {
-              ambientSynth.start()
-              setPlaying(true)
-            } catch {}
-          }
-        }}
+        onPause={() => setPlaying(false)}
       />
 
       {/* Floating Music Controller */}
