@@ -5,37 +5,65 @@ export default function MusicPlayer() {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
   const userManuallyMutedRef = useRef(false)
-  const musicSrc = '/music/birthday-bg.mp3'
+  
+  // Resolve correct path in local dev, Vercel, Netlify, and subpath deployments (GitHub Pages)
+  const baseUrl = import.meta.env.BASE_URL || '/'
+  const musicSrc = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}music/birthday-bg.mp3`
 
-  // Toggle Play / Pause
+  // Direct start method
+  const startAudioPlayback = useCallback(() => {
+    if (userManuallyMutedRef.current) return
+
+    const audio = audioRef.current
+    if (audio) {
+      audio.volume = 0.55
+      audio.loop = true
+      audio
+        .play()
+        .then(() => {
+          setPlaying(true)
+          ambientSynth.stop()
+        })
+        .catch(() => {
+          // If HTML5 audio is blocked or fails, fallback to ambient web audio synth
+          try {
+            ambientSynth.start()
+            setPlaying(true)
+          } catch {}
+        })
+    }
+  }, [])
+
+  // Expose global starter so any user interaction across the site unlocks sound
+  useEffect(() => {
+    window.__startMohiniMusic = startAudioPlayback
+    return () => {
+      delete window.__startMohiniMusic
+    }
+  }, [startAudioPlayback])
+
+  // Toggle Play / Pause button
   const toggle = useCallback((e) => {
     if (e) {
       e.preventDefault()
-      e.stopPropagation() // Prevent event bubbling to window
+      e.stopPropagation()
     }
 
     const audio = audioRef.current
     if (!audio) return
 
-    // Stop synth in case it was playing
-    ambientSynth.stop()
-
-    if (!audio.paused) {
-      // User explicitly wants to TURN OFF / MUTE
+    if (!audio.paused || ambientSynth.isPlaying) {
+      // User explicitly muted
       userManuallyMutedRef.current = true
       audio.pause()
+      ambientSynth.stop()
       setPlaying(false)
     } else {
-      // User explicitly wants to TURN ON / PLAY
+      // User explicitly unmuted
       userManuallyMutedRef.current = false
-      audio.volume = 0.55
-      audio.loop = true
-      audio
-        .play()
-        .then(() => setPlaying(true))
-        .catch(() => {})
+      startAudioPlayback()
     }
-  }, [])
+  }, [startAudioPlayback])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -44,58 +72,53 @@ export default function MusicPlayer() {
     audio.volume = 0.55
     audio.loop = true
 
-    // 1. Attempt initial autoplay
-    const promise = audio.play()
-    if (promise !== undefined) {
-      promise
+    // 1. Attempt immediate autoplay when page loads
+    const playPromise = audio.play()
+    if (playPromise !== undefined) {
+      playPromise
         .then(() => {
           setPlaying(true)
         })
         .catch(() => {
-          // Blocked by browser security policy until first interaction
+          // Autoplay policy prevented immediate unmuted sound before first touch
           setPlaying(false)
         })
     }
 
-    // 2. Start on first interaction ONLY if user hasn't manually clicked mute
-    const handleFirstInteraction = (e) => {
-      // Don't auto-start if user specifically clicked the music toggle button!
+    // 2. Unlock & play immediately on the VERY FIRST touch / click / scroll anywhere on screen
+    const handleFirstGesture = (e) => {
+      // If user specifically clicked the mute toggle button, don't interfere
       if (e.target && e.target.closest && e.target.closest('.music-toggle')) {
         return
       }
 
-      if (userManuallyMutedRef.current) {
-        return
+      if (!userManuallyMutedRef.current) {
+        startAudioPlayback()
       }
 
-      const el = audioRef.current
-      if (el && el.paused && !userManuallyMutedRef.current) {
-        el.volume = 0.55
-        el.loop = true
-        el.play()
-          .then(() => setPlaying(true))
-          .catch(() => {})
-      }
-
-      // Remove after first trigger
-      window.removeEventListener('click', handleFirstInteraction)
-      window.removeEventListener('touchstart', handleFirstInteraction)
-      window.removeEventListener('pointerdown', handleFirstInteraction)
-      window.removeEventListener('keydown', handleFirstInteraction)
+      // Cleanup listeners once unlocked
+      cleanupListeners()
     }
 
-    window.addEventListener('click', handleFirstInteraction)
-    window.addEventListener('touchstart', handleFirstInteraction)
-    window.addEventListener('pointerdown', handleFirstInteraction)
-    window.addEventListener('keydown', handleFirstInteraction)
+    const eventOptions = { capture: true, passive: true }
+    const events = ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'click', 'scroll', 'keydown']
+
+    const cleanupListeners = () => {
+      events.forEach((evt) => {
+        window.removeEventListener(evt, handleFirstGesture, eventOptions)
+        document.removeEventListener(evt, handleFirstGesture, eventOptions)
+      })
+    }
+
+    events.forEach((evt) => {
+      window.addEventListener(evt, handleFirstGesture, eventOptions)
+      document.addEventListener(evt, handleFirstGesture, eventOptions)
+    })
 
     return () => {
-      window.removeEventListener('click', handleFirstInteraction)
-      window.removeEventListener('touchstart', handleFirstInteraction)
-      window.removeEventListener('pointerdown', handleFirstInteraction)
-      window.removeEventListener('keydown', handleFirstInteraction)
+      cleanupListeners()
     }
-  }, [])
+  }, [startAudioPlayback])
 
   return (
     <>
@@ -105,13 +128,18 @@ export default function MusicPlayer() {
         src={musicSrc}
         preload="auto"
         loop
+        playsInline
         onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => {
-          const el = audioRef.current
-          if (el && !userManuallyMutedRef.current) {
-            el.currentTime = 0
-            el.play().catch(() => {})
+        onPause={() => {
+          if (!ambientSynth.isPlaying) setPlaying(false)
+        }}
+        onError={() => {
+          // Fallback to ambient soothing music if MP3 file fails to load
+          if (!userManuallyMutedRef.current) {
+            try {
+              ambientSynth.start()
+              setPlaying(true)
+            } catch {}
           }
         }}
       />

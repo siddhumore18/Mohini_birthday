@@ -45,14 +45,17 @@ function App() {
   }, [currentPage, transitioning])
 
   const nextPage = useCallback(() => {
+    window.__startMohiniMusic?.()
     if (currentPage < PAGES.length - 1) goToPage(currentPage + 1)
   }, [currentPage, goToPage])
 
   const prevPage = useCallback(() => {
+    window.__startMohiniMusic?.()
     if (currentPage > 0) goToPage(currentPage - 1)
   }, [currentPage, goToPage])
 
   const handleStart = useCallback(() => {
+    window.__startMohiniMusic?.()
     setStarted(true)
     setTransitioning(true)
     setTimeout(() => {
@@ -63,6 +66,7 @@ function App() {
   }, [])
 
   const handleReplay = useCallback(() => {
+    window.__startMohiniMusic?.()
     setTransitioning(true)
     setTimeout(() => {
       setCurrentPage(0)
@@ -73,11 +77,13 @@ function App() {
   }, [])
 
   const handleOpenBooklet = useCallback(() => {
+    window.__startMohiniMusic?.()
     setViewMode('booklet')
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
 
   const handleOpenNewspaper = useCallback(() => {
+    window.__startMohiniMusic?.()
     setViewMode('newspaper')
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])

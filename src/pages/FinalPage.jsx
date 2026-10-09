@@ -130,9 +130,12 @@ export default function FinalPage({ onReplay, onPrev, onOpenBooklet }) {
         </span>
       </div>
 
-      {/* Replay */}
-      <div className="replay-section text-center animate-fade-in-up delay-8">
-        <button className="paper-button paper-button-burgundy" onClick={onReplay}>
+      {/* Replay & 3D Booklet Actions */}
+      <div className="replay-section text-center animate-fade-in-up delay-8" style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
+        <button className="paper-button paper-button-burgundy" onClick={onOpenBooklet}>
+          📖 Open 3D Desk Booklet →
+        </button>
+        <button className="paper-button" onClick={onReplay}>
           ↩ Read it all again
         </button>
       </div>
